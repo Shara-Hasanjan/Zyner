@@ -6,6 +6,7 @@ import './styles/tokens.css'
 import './styles/base.css'
 import './styles/ui.css'
 import './styles/chapters.css'
+import './styles/contact.css'
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'

@@ -219,9 +219,7 @@ button {
   --bd: var(--ivory);
 }
 .btn--ghost {
-  --bg: rgba(11, 10, 9, 0.5);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
+  --bg: rgba(11, 10, 9, 0.68); /* solid fill: a blur over a live canvas is costly every frame */
 }
 .btn--ghost:hover {
   --bg: var(--ivory);

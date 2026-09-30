@@ -134,8 +134,9 @@ export function JapolicLayer() {
             </mesh>
           </group>
         ))}
-        <pointLight ref={light} position={[0, 1.2, 1.5]} color="#ff8b1f" distance={13} decay={2} intensity={0} />
       </group>
+      {/* Lives outside the slab group: toggling a light's visibility changes the light count and recompiles every lit shader. */}
+      <pointLight ref={light} position={[0, L.slabY + 1.2, 1.5]} color="#ff8b1f" distance={13} decay={2} intensity={0} />
       <instancedMesh ref={lanes} args={[undefined, undefined, LANES * PER]} material={mats.amber} frustumCulled={false}>
         <boxGeometry args={[1, 1, 1]} />
       </instancedMesh>

@@ -1,0 +1,96 @@
+/* ── contact dialog ───────────────────────────────────────────────────── */
+.contact {
+  padding: 0;
+  margin: auto;
+  width: min(680px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  background: var(--ink);
+  color: var(--ivory);
+  border: 1px solid var(--line-strong);
+  border-top: 3px solid var(--amber);
+  overflow: auto;
+}
+.contact::backdrop {
+  background: rgba(11, 10, 9, 0.86);
+}
+.contact[open] {
+  animation: contact-in 0.5s var(--ease);
+}
+@keyframes contact-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+}
+.contact__panel {
+  padding: clamp(22px, 4vw, 40px);
+  display: grid;
+  gap: 18px;
+}
+.contact__close {
+  justify-self: end;
+  color: var(--ivory-dim);
+  padding: 6px 0;
+}
+.contact__close:hover {
+  color: var(--amber);
+}
+.contact form {
+  display: grid;
+  gap: 20px;
+}
+.contact__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.field {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+.field--wide {
+  grid-column: 1 / -1;
+}
+.field span {
+  font-family: var(--font-mono);
+  font-size: var(--fs-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ivory-dim);
+}
+.field input,
+.field textarea {
+  width: 100%;
+  font: inherit;
+  color: var(--ivory);
+  background: var(--char);
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  padding: 13px 14px;
+  resize: vertical;
+}
+.field input:focus,
+.field textarea:focus {
+  outline: 2px solid var(--amber);
+  outline-offset: 0;
+  border-color: var(--amber);
+}
+.field [aria-invalid='true'] {
+  border-color: #ff6b4a;
+}
+.field small {
+  min-height: 1.2em;
+  color: #ff9a82;
+  font-size: 0.8125rem;
+}
+.contact__done {
+  display: grid;
+  gap: 18px;
+  justify-items: start;
+}
+@media (max-width: 600px) {
+  .contact__grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -18,7 +18,7 @@ export function Footer() {
             Japolic is a high-performance file system for developers. It connects multiple servers to shared storage
             and S3, so data access feels closer to a local disk.
           </p>
-          <a className="btn btn--ink" href="mailto:hello@japolic.com">
+          <a className="btn btn--ink" href="#contact" onClick={(e) => go(e, '#contact')}>
             Talk to the team <span className="btn__arrow" aria-hidden="true">→</span>
           </a>
         </div>

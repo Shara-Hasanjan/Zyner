@@ -17,12 +17,42 @@ import { S3Layer } from './S3Layer'
 import { DataStreams } from './DataStreams'
 import { FocusFrames } from './FocusFrames'
 
-/** Signals the DOM that the first frame has been drawn. */
+/**
+ * Pre-warms the GPU, then signals the DOM that the scene is ready. Objects that start
+ * hidden (second server row, cables, disks, S3 links) would otherwise compile shaders and
+ * upload textures the first time they appear mid-scroll, which shows up as a freeze.
+ */
 function ReadySignal({ onReady }: { onReady: () => void }) {
+  const gl = useThree((s) => s.gl)
+  const scene = useThree((s) => s.scene)
+  const camera = useThree((s) => s.camera)
   useEffect(() => {
-    const id = requestAnimationFrame(() => requestAnimationFrame(onReady))
-    return () => cancelAnimationFrame(id)
-  }, [onReady])
+    let id2 = 0
+    const id = requestAnimationFrame(() => {
+      id2 = requestAnimationFrame(() => {
+        const hidden: THREE.Object3D[] = []
+        try {
+          scene.traverse((o) => {
+            if (!o.visible) {
+              hidden.push(o)
+              o.visible = true
+            }
+          })
+          gl.compile(scene, camera)
+          gl.render(scene, camera) // builds depth/shadow programs and uploads textures too
+        } catch {
+          /* warm-up is best-effort */
+        } finally {
+          hidden.forEach((o) => (o.visible = false))
+        }
+        onReady()
+      })
+    })
+    return () => {
+      cancelAnimationFrame(id)
+      cancelAnimationFrame(id2)
+    }
+  }, [onReady, gl, scene, camera])
   return null
 }
 
@@ -65,7 +95,7 @@ export default function SceneCanvas({ onReady, covered }: { onReady: () => void;
     <Canvas
       className="stage__canvas"
       frameloop={covered ? 'never' : 'always'}
-      dpr={mobile ? [1, 1.3] : [1, 1.75]}
+      dpr={mobile ? [1, 1.3] : [1, 1.5]}
       shadows={shadows ? 'percentage' : false}
       camera={{ fov: 30, near: 0.5, far: 120, position: [10, 5, 20] }}
       gl={{
@@ -91,7 +121,7 @@ export default function SceneCanvas({ onReady, covered }: { onReady: () => void;
         <FocusFrames />
         {forced !== 'high' && <AdaptiveQuality onLow={() => setLow(true)} />}
         {!mobile && !low && (
-          <EffectComposer multisampling={4} enableNormalPass={false}>
+          <EffectComposer multisampling={2} enableNormalPass={false}>
             <Bloom mipmapBlur intensity={0.55} luminanceThreshold={0.85} luminanceSmoothing={0.25} radius={0.7} />
             <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
             <Vignette offset={0.28} darkness={0.7} />

@@ -157,7 +157,7 @@ export const FOOTER_COLS = [
   },
   {
     title: 'Contact',
-    links: [{ label: 'Talk to the team', href: 'mailto:hello@japolic.com' }],
+    links: [{ label: 'Talk to the team', href: '#contact' }],
   },
 ]
 

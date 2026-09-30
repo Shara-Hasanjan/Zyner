@@ -15,7 +15,7 @@ export function FinalCTA() {
           <a className="btn btn--primary" href="#product" onClick={(e) => go(e, '#product')}>
             Explore Japolic <span className="btn__arrow" aria-hidden="true">→</span>
           </a>
-          <a className="btn btn--ghost" href="mailto:hello@japolic.com">
+          <a className="btn btn--ghost" href="#contact" onClick={(e) => go(e, '#contact')}>
             Talk to the team
           </a>
         </div>

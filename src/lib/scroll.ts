@@ -58,6 +58,7 @@ let lastDriven = 0
  */
 export function driveScroll(nowMs: number) {
   lastDriven = performance.now()
+  advanceTween(lastDriven)
   lenis?.raf(nowMs)
 }
 
@@ -73,65 +74,84 @@ export function chapterRange(i: number) {
  * Chapters that advance one step per scroll gesture. Each stop sits at the centre of its
  * step (where its camera shot is keyed), matching `useChapterStep` in the sections.
  */
-export const STEP_CHAPTERS = [
-  { ch: 1, count: 2, from: 0.12, to: 0.9 },
-  { ch: 4, count: 4, from: 0.05, to: 0.95 },
-  { ch: 5, count: 6, from: 0, to: 1 },
-  { ch: 6, count: 5, from: 0, to: 1 },
-  { ch: 7, count: 6, from: 0.08, to: 0.92 },
-]
-interface StepZone {
-  top: number
-  range: number
-  pts: number[]
-}
-let zones: StepZone[] = []
-const currentY = () => (lenis ? lenis.scroll : window.scrollY)
-let tweenRaf = 0
+const centres = (count: number, from: number, to: number) =>
+  Array.from({ length: count }, (_, k) => from + ((to - from) * (k + 0.5)) / count)
 
-/** Animate the page to `p`: through Lenis when present, otherwise our own tween (or a jump). */
-function animateTo(p: number, duration: number, done: () => void) {
-  if (lenis) {
-    lenis.scrollTo(p, { duration, easing: easeInOut, lock: false, force: true, onComplete: done })
-    return
+export const STEP_CHAPTERS: { ch: number; at: number[] }[] = [
+  { ch: 0, at: [0, 1] }, // hero, then the approach shot
+  { ch: 1, at: centres(2, 0.12, 0.9) }, // problem beats
+  { ch: 2, at: [0.1, 0.72] }, // pause, then the reveal (wordmark complete)
+  { ch: 3, at: [0.05, 0.5] }, // solution orbit
+  { ch: 4, at: centres(4, 0.05, 0.95) }, // four layers
+  { ch: 5, at: centres(6, 0, 1) }, // six capabilities
+  { ch: 6, at: centres(5, 0, 1) }, // five workload stages
+  { ch: 7, at: centres(6, 0.08, 0.92) }, // six use cases
+  { ch: 8, at: [0.1, 0.55, 1] }, // final shot
+]
+/** Every stop on the page, in order. Between them, one scroll gesture = one stop. */
+let stops: number[] = []
+const currentY = () => (lenis ? lenis.scroll : window.scrollY)
+interface Tween {
+  y0: number
+  p: number
+  t0: number
+  dur: number
+  done: () => void
+}
+let tw: Tween | null = null
+
+const setY = (y: number) => {
+  if (lenis) lenis.scrollTo(y, { immediate: true, force: true })
+  else window.scrollTo(0, y)
+}
+
+/** Advance the step tween. Runs once per rendered frame, before the camera reads scroll. */
+function advanceTween(now: number) {
+  if (!tw) return
+  const k = Math.min(1, (now - tw.t0) / (tw.dur * 1000))
+  setY(tw.y0 + (tw.p - tw.y0) * easeInOut(k))
+  if (k >= 1) {
+    const done = tw.done
+    tw = null
+    done()
   }
-  cancelAnimationFrame(tweenRaf)
+}
+
+/** Glide to `p` on a fixed path that wheel events cannot retarget; a new step restarts from here. */
+function animateTo(p: number, duration: number, done: () => void) {
   if (world.reduced) {
-    window.scrollTo(0, p)
+    tw = null
+    setY(p)
     done()
     return
   }
-  const y0 = window.scrollY
-  const t0 = performance.now()
-  const tick = (now: number) => {
-    const k = Math.min(1, (now - t0) / (duration * 1000))
-    window.scrollTo(0, y0 + (p - y0) * easeInOut(k))
-    if (k < 1) tweenRaf = requestAnimationFrame(tick)
-    else done()
-  }
-  tweenRaf = requestAnimationFrame(tick)
+  tw = { y0: currentY(), p, t0: performance.now(), dur: duration, done }
 }
 let stepLocked = false
 let navTravel = false // a menu / button jump is flying through: don't capture it
 let lastGesture = 0
 
-/** Next stop in the scroll direction, or null when the page should scroll freely. */
+/** Next stop in the scroll direction, or null when the page should scroll freely (top / footer). */
 function nextStop(dir: number): number | null {
   const y = currentY()
-  for (const z of zones) {
-    if (y < z.top - 2 || y > z.top + z.range + 2) continue
-    if (dir > 0) return z.pts.find((p) => p > y + 6) ?? null
-    return [...z.pts].reverse().find((p) => p < y - 6) ?? null
-  }
-  return null
+  if (!stops.length) return null
+  if (dir > 0) return stops.find((p) => p > y + 6) ?? null
+  return [...stops].reverse().find((p) => p < y - 6) ?? null
 }
 
+let lockTimer = 0
+let lastStepAt = 0
+let lastAbs = 0
+let lastDir = 0
 function goTo(p: number) {
   stepLocked = true
-  animateTo(p, 1.25, () => {
+  lastStepAt = performance.now()
+  animateTo(p, Math.min(1.1, Math.max(0.6, 0.45 + (Math.abs(p - currentY()) / world.vh) * 0.3)), () => {
     stepLocked = false
   })
-  window.setTimeout(() => (stepLocked = false), 1500) // safety if another scroll interrupts
+  // release input early: the next swipe can retarget while this glide is still settling
+  window.clearTimeout(lockTimer)
+  lockTimer = window.setTimeout(() => (stepLocked = false), 220)
 }
 
 function stepBy(dir: number) {
@@ -146,7 +166,7 @@ function stepBy(dir: number) {
  * target lies beyond the next stop, redirect it to that stop.
  */
 function capture(y: number) {
-  if (!lenis || stepLocked || navTravel || lenis.isScrolling !== 'smooth') return
+  if (!lenis || tw || stepLocked || navTravel || lenis.isScrolling !== 'smooth') return
   const dist = lenis.targetScroll - y
   const dir = Math.sign(dist)
   if (!dir) return
@@ -162,16 +182,28 @@ let touchDone = false
  * swipe (inertia) is swallowed until the hand has really stopped.
  */
 function onWheel(e: WheelEvent) {
-  if (e.ctrlKey) return // pinch-zoom
+  if (e.ctrlKey || document.querySelector('dialog[open]')) return // pinch-zoom
   const now = performance.now()
   const gap = now - lastGesture
   lastGesture = now
-  if (Math.abs(e.deltaY) < 1) return
+  const abs = Math.abs(e.deltaY)
+  if (abs < 1) return
   const dir = Math.sign(e.deltaY)
-  if (nextStop(dir) == null && !stepLocked) return // free scrolling outside / past the ends
+  // A swipe (and its inertia) only ever decays. A sharp rise, or a reversal, is a new flick.
+  const freshFlick = (abs > lastAbs * 1.6 && abs >= 40) || dir !== lastDir
+  lastAbs = abs
+  lastDir = dir
+  // the rest of the swipe that just caused a step must not leak into free scrolling
+  const busy = !!tw || now - lastStepAt < 450 || (gap < 140 && now - lastStepAt < 2500)
+  if (busy && !(freshFlick && !stepLocked && nextStop(dir) != null)) {
+    e.preventDefault()
+    e.stopImmediatePropagation()
+    return
+  }
+  if (nextStop(dir) == null && !stepLocked && !tw) return // free scrolling outside / past the ends
   e.preventDefault()
   e.stopImmediatePropagation()
-  if (stepLocked || gap < 220) return
+  if (stepLocked || gap < 140) return
   stepBy(dir)
 }
 
@@ -182,7 +214,7 @@ function onTouchStart(e: TouchEvent) {
 function onTouchMove(e: TouchEvent) {
   const dy = touchY - e.touches[0].clientY // + = finger moving up = scrolling down
   const dir = Math.sign(dy)
-  if (!dir || (nextStop(dir) == null && !stepLocked)) return
+  if (!dir || (nextStop(dir) == null && !stepLocked && !tw)) return
   if (e.cancelable) e.preventDefault()
   if (touchDone || stepLocked || Math.abs(dy) < 36) return
   touchDone = true // one step per swipe
@@ -215,14 +247,12 @@ export function startScroll() {
     const sy = window.scrollY
     secs = els.map((el) => ({ top: el.getBoundingClientRect().top + sy, h: el.offsetHeight }))
     footerTop = secs.length ? secs[secs.length - 1].top : Infinity
-    zones = STEP_CHAPTERS.filter((z) => secs[z.ch]).map((z) => {
-      const range = Math.max(1, secs[z.ch].h - world.vh)
-      return {
-        top: secs[z.ch].top,
-        range,
-        pts: Array.from({ length: z.count }, (_, k) => secs[z.ch].top + range * (z.from + ((z.to - z.from) * (k + 0.5)) / z.count)),
-      }
-    })
+    stops = STEP_CHAPTERS.filter((z) => secs[z.ch])
+      .flatMap((z) => {
+        const range = Math.max(1, secs[z.ch].h - world.vh)
+        return z.at.map((f) => secs[z.ch].top + range * f)
+      })
+      .sort((x, y) => x - y)
     update()
   }
 
@@ -257,7 +287,7 @@ export function startScroll() {
     lenis = new Lenis({ lerp: 0.12, wheelMultiplier: 1, touchMultiplier: 1.2, smoothWheel: true, autoRaf: false })
     lenis.on('scroll', update)
     gsap.ticker.add((t) => {
-      if (performance.now() - lastDriven > 80) lenis?.raf(t * 1000)
+      if (performance.now() - lastDriven > 80) driveScroll(t * 1000)
     })
     gsap.ticker.lagSmoothing(0)
   } else {
@@ -278,6 +308,7 @@ export function startScroll() {
   window.addEventListener('pointermove', onMove, { passive: true })
 
   const onKey = (e: KeyboardEvent) => {
+    if (document.querySelector('dialog[open]')) return
     if (e.metaKey || e.ctrlKey || e.altKey) return
     const el = e.target as HTMLElement
     if (el && /^(input|textarea|select)$/i.test(el.tagName)) return

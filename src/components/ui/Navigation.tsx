@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { NAV_LINKS } from '../../lib/content'
 import { onScroll, scrollToEl, stopSmoothScroll, chapterRange } from '../../lib/scroll'
+import { openContact } from '../../lib/contact'
 
 export const go = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
   if (!href.startsWith('#')) return
   e.preventDefault()
+  if (href === '#contact') return openContact()
   scrollToEl(href === '#top' ? 'body' : href)
 }
 
@@ -69,7 +71,7 @@ export function Navigation() {
             </a>
           ))}
         </nav>
-        <a className="btn btn--ghost nav__cta" href="mailto:hello@japolic.com">
+        <a className="btn btn--ghost nav__cta" href="#contact" onClick={(e) => go(e, '#contact')}>
           Talk to the team
         </a>
         <button
@@ -92,7 +94,7 @@ export function Navigation() {
           ))}
         </nav>
         <div className="sheet__foot">
-          <a className="btn btn--primary" href="mailto:hello@japolic.com">
+          <a className="btn btn--primary" href="#contact" onClick={(e) => close(e, '#contact')}>
             Talk to the team <span className="btn__arrow" aria-hidden="true">→</span>
           </a>
           <p className="mono" style={{ color: 'var(--ivory-faint)' }}>

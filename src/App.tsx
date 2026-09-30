@@ -13,6 +13,7 @@ import { AIWorkload } from './components/sections/AIWorkload'
 import { UseCases } from './components/sections/UseCases'
 import { FinalCTA } from './components/sections/FinalCTA'
 import { Footer } from './components/sections/Footer'
+import { ContactDialog } from './components/ui/ContactDialog'
 import { useResponsive3D } from './hooks/useResponsive3D'
 import { onCovered, startScroll } from './lib/scroll'
 
@@ -65,6 +66,7 @@ export default function App() {
         <FinalCTA />
       </main>
       <Footer />
+      <ContactDialog />
       {!loaderGone && <Loader sceneReady={sceneReady || noWebGL} onLift={() => setLifted(true)} onDone={() => setLoaderGone(true)} />}
     </>
   )
